@@ -1,4 +1,5 @@
 import os
+import datetime
 import torch
 import pytorch_lightning as pl
 import wandb
@@ -44,7 +45,7 @@ class LitModel(pl.LightningModule):
         """
         loss 가중치 합이 1이 되는 지 검사하는 함수
         """
-    assert self.hparams.w_mse + self.hparams.w_mae + self.hparams.w_ssim + self.hparams.w_tv == 1
+        assert self.hparams.w_mse + self.hparams.w_mae + self.hparams.w_ssim + self.hparams.w_tv == 1
 
     def create_metrics(self):
         """Creates metrics (MSE, MAE, SSIM, TV) for the train, validation and test sets."""
@@ -58,7 +59,7 @@ class LitModel(pl.LightningModule):
         self.baseline_test_metrics = self.metrics_factory("test")
 
     def enable_benchmark_logging(self):
-        if self.hparams.benchmark:
+        if self.hparams.benchmark_logging:
             self.logging = {}
             self.logging['current_idx'] = 1
             self.logging['log'] = pd.DataFrame()
@@ -162,7 +163,7 @@ class LitModel(pl.LightningModule):
             + (self.hparams.w_ssim * ssim)
         )
 
-        if self.hparams.benchmark:
+        if self.hparams.benchmark_logging:
             self.validation_log(y, self.detach_dict(m), self.detach_dict(baseline_m), prefix)
 
         return {
@@ -808,9 +809,13 @@ class ImagePredictionLogger(pl.Callback):
             self._on_epoch_end("test", batch, trainer, pl_module)
 
     def on_test_end(self, trainer, pl_module):
-        if getattr(pl_module.hparams, "benchmark", False) and hasattr(pl_module, "logging") and not pl_module.logging["log"].empty:
+        if getattr(pl_module.hparams, "benchmark_logging", False) and hasattr(pl_module, "logging") and not pl_module.logging["log"].empty:
             save_path = pl_module.log_path
             os.makedirs(save_path, exist_ok=True)
-            filepath = os.path.join(save_path, "benchmark_log.csv")
+
+            current_time_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            filename = f"benchmark_log_{current_time_str}.csv"
+            filepath = os.path.join(save_path, filename)
+
             pl_module.logging["log"].to_csv(filepath, index_label="id")
             print(f"Benchmark log successfully saved to: {filepath}")

@@ -105,7 +105,7 @@ def generate_and_run_trainer(args, dataloaders, model):
     model : LightningModule
         The Lightning model.
     """
-    trainer = pl.Trainer.from_argparse_args(args) # accelerator="cpu", devices=1
+    trainer = pl.Trainer.from_argparse_args(args)
     trainer.fit(model, dataloaders["train"], dataloaders["val"])
 
     if not args.fast_dev_run:
@@ -311,14 +311,13 @@ def add_project_specific_arguments(parser):
         help="Enable WandB logging"
     )
     parser.add_argument(
-        "--benchmark",
+        "--benchmark_logging",
         action="store_true",
         help="Enable benchmark mode",
     )
     parser.add_argument(
         "--upload_checkpoint",
-        default=False,
-        type=bool,
+        action="store_true",
         help="Uploads the model checkpoint to WandB.",
     )
 
