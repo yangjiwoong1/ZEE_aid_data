@@ -198,6 +198,8 @@ class LitModel(pl.LightningModule):
         ssim = values[f"{prefix}/SSIM_loss"].clone()
         tv = values[f"{prefix}/TV"].clone()
         values[f"{prefix}/PSNR"] = -10.0 * torch.log10(mse)
+        # Also provide SSIM metric (1 - SSIM_loss)
+        values[f"{prefix}/SSIM"] = 1.0 - values[f"{prefix}/SSIM_loss"]
         return values, mse, mae, ssim, tv
 
     def compute_baseline_metrics(
@@ -222,6 +224,8 @@ class LitModel(pl.LightningModule):
         # compute PSNR_baseline
         baseline_psnr = -10.0 * torch.log10(mse_loss(y_hat_base, y))
         values[f"{prefix}/PSNR_baseline"] = baseline_psnr
+        # Baseline SSIM (1 - SSIM_loss)
+        values[f"{prefix}/SSIM"] = 1.0 - values[f"{prefix}/SSIM_loss"]
 
         values[f"{prefix}/PSNR_ratio"] = (
             values[f"{prefix}/PSNR_baseline"] / (metrics[f"{prefix}/PSNR"]+ 1e-6) # 0으로 나누는 것을 방지
@@ -471,7 +475,7 @@ class ImagePredictionLogger(pl.Callback):
 
         metrics, baseline_metrics = self.fetch_metrics_for_split(prefix, pl_module)
 
-        loss_output, instance_psnr, baseline_psnr = self.get_losses_from_metrics(
+        loss_output, instance_psnr, baseline_psnr, instance_ssim, baseline_ssim = self.get_losses_from_metrics(
             batch, metrics, baseline_metrics, pl_module, prefix
         )
         sr, sr_base = self.get_output_and_baseline(loss_output)
@@ -485,6 +489,9 @@ class ImagePredictionLogger(pl.Callback):
         instance_psnr, baseline_psnr = self.extract_psnr_values_for_patches(
             sr, sr_base, lr, instance_psnr, baseline_psnr
         )
+        # Expand SSIM values per patch as well to align with images
+        instance_ssim = self.expand_values_for_patches(instance_ssim, sr, lr)
+        baseline_ssim = self.expand_values_for_patches(baseline_ssim, sr_base, lr)
 
         self.log_image_previews_to_wandb(
             sr,
@@ -493,6 +500,8 @@ class ImagePredictionLogger(pl.Callback):
             hr,
             instance_psnr,
             baseline_psnr,
+            instance_ssim,
+            baseline_ssim,
             prefix,
             trainer,
         )
@@ -561,16 +570,18 @@ class ImagePredictionLogger(pl.Callback):
 
         Returns
         -------
-        torch.Tensor, torch.Tensor, torch.Tensor
-            The loss output, the PSNR values for the SR and Baseline images in the batch.
+        dict, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor
+            The loss output, the PSNR and SSIM values for the SR and Baseline images in the batch.
         """
         loss_output = pl_module.loss(batch, metrics, baseline_metrics, prefix=prefix)
         instance_psnr = loss_output["metrics"][f"{prefix}/PSNR"].to("cpu")
         baseline_psnr = loss_output["baseline_metrics"][f"{prefix}/PSNR_baseline"].to(
             "cpu"
         )
+        instance_ssim = loss_output["metrics"][f"{prefix}/SSIM"].to("cpu")
+        baseline_ssim = loss_output["baseline_metrics"][f"{prefix}/SSIM"].to("cpu")
 
-        return loss_output, instance_psnr, baseline_psnr
+        return loss_output, instance_psnr, baseline_psnr, instance_ssim, baseline_ssim
 
     def get_output_and_baseline(self, loss_output):
         """Get the output and baseline images from the loss output.
@@ -712,6 +723,26 @@ class ImagePredictionLogger(pl.Callback):
 
         return instance_psnr, baseline_psnr
 
+    @staticmethod
+    def expand_values_for_patches(values, target_images, lr_images):
+        """Broadcast per-image metric values to per-patch arrays.
+
+        Parameters
+        ----------
+        values : torch.Tensor
+            Per-image metric tensor of shape (batch,)
+        target_images : torch.Tensor
+            Tensor after patch extraction whose batch length to match (e.g., sr)
+        lr_images : torch.Tensor
+            LR tensor after patch extraction to compute expansion factor
+
+        Returns
+        -------
+        torch.Tensor
+            Per-patch broadcasted metric tensor aligned with target_images.
+        """
+        return values[None].expand(target_images.shape[0] // lr_images.shape[0], -1).flatten()
+
     def log_image_previews_to_wandb(
         self,
         sr,
@@ -720,6 +751,8 @@ class ImagePredictionLogger(pl.Callback):
         hr,
         instance_psnr,
         baseline_psnr,
+        instance_ssim,
+        baseline_ssim,
         prefix,
         trainer,
     ):
@@ -765,16 +798,16 @@ class ImagePredictionLogger(pl.Callback):
                 f"{prefix}-baseline_upscaled_bicubic": [
                     wandb.Image(
                         make_grid(baseline_image, nrow=1, normalize=True, scale_each=True),
-                        caption=f"baseline:{baseline_psnr.item():.2f}",
+                        caption=f"baseline:PSNR {baseline_psnr.item():.2f}, SSIM {baseline_ssim.item():.3f}",
                     )
-                    for baseline_image, baseline_psnr in zip(sr_base, baseline_psnr)
+                    for baseline_image, baseline_psnr, baseline_ssim in zip(sr_base, baseline_psnr, baseline_ssim)
                 ],
                 f"{prefix}-sr": [
                     wandb.Image(
                         make_grid(image, nrow=1, normalize=True, scale_each=True),
-                        caption=f"sr:{sr_psnr.item():.2f}",
+                        caption=f"sr:PSNR {sr_psnr.item():.2f}, SSIM {sr_ssim.item():.3f}",
                     )
-                    for image, sr_psnr in zip(sr, instance_psnr)
+                    for image, sr_psnr, sr_ssim in zip(sr, instance_psnr, instance_ssim)
                 ],
             }
         )
