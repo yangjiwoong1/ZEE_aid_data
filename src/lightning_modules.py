@@ -97,26 +97,19 @@ class LitModel(pl.LightningModule):
 
         log = pd.DataFrame(
             columns=[
-                "MSE",
-                "MAE",
-                "SSIM_loss",
-                "TV",
-                "PSNR",
-                "Baseline MSE",
-                "Baseline PSNR",
+                "MSE", "MAE", "SSIM_loss", "SSIM", "TV", "PSNR",
+                "Baseline MSE", "Baseline PSNR", "Baseline SSIM",
             ]
         )
-        mse, mae, ssim_loss, tv, psnr = (
-            m[f"{prefix}/MSE"],
-            m[f"{prefix}/MAE"],
-            m[f"{prefix}/SSIM_loss"],
-            m[f"{prefix}/TV"],
-            m[f"{prefix}/PSNR"],
+
+        mse, mae, ssim_loss, ssim, tv, psnr = (
+            m[f"{prefix}/MSE"], m[f"{prefix}/MAE"],
+            m[f"{prefix}/SSIM_loss"], m[f"{prefix}/SSIM"],
+            m[f"{prefix}/TV"], m[f"{prefix}/PSNR"],
         )
-        baseline_mse, baseline_psnr = (
-            baseline_m[f"{prefix}/MSE"],
-            baseline_m[f"{prefix}/PSNR_baseline"],
-        )
+        baseline_mse = baseline_m[f"{prefix}/MSE"]
+        baseline_psnr = baseline_m[f"{prefix}/PSNR_baseline"]
+        baseline_ssim = baseline_m[f"{prefix}/SSIM"]
         
         baseline_m = list(baseline_m.values())
         for batch_item in range(y.shape[0]):  # batch_size
@@ -124,10 +117,12 @@ class LitModel(pl.LightningModule):
                 mse[batch_item].detach().item(),
                 mae[batch_item].detach().item(),
                 ssim_loss[batch_item].detach().item(),
+                ssim[batch_item].detach().item(),
                 tv[batch_item].detach().item(),
                 psnr[batch_item].detach().item(),
                 baseline_mse[batch_item].detach().item(),
                 baseline_psnr[batch_item].detach().item(),
+                baseline_ssim[batch_item].detach().item(),
             )
             self.logging["current_idx"] += 1
         self.logging["log"] = pd.concat([self.logging["log"], log])
