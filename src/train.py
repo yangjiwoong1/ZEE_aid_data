@@ -2,7 +2,7 @@
 
 import sys
 import os
-import pandas as pd
+import datetime
 import pytorch_lightning as pl
 import wandb
 from argparse import ArgumentParser
@@ -145,8 +145,9 @@ def add_callbacks(args, dataloaders):
     
     # wandb가 활성화된 경우에만 wandb 관련 콜백 추가
     if args.use_wandb:
+        current_time = datetime.datetime.now().strftime("%m%d-%H%M")
         vars(args)["logger"] = WandbLogger(
-            project="zee_aid", config=args
+            project="zee_aid", name=f"{args.model}_{args.zoom_factor}x_{current_time}", config=args
         )
         callbacks.extend([
             ImagePredictionLogger(
@@ -154,7 +155,6 @@ def add_callbacks(args, dataloaders):
                 val_dataloader=dataloaders["val"],
                 test_dataloader=dataloaders["test"],
                 log_every_n_epochs=1,
-                window_size=tuple(args.chip_size),
             ),
             LearningRateMonitor(logging_interval="step"),
         ])

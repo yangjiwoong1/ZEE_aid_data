@@ -22,8 +22,11 @@ def tv_loss(x: Tensor) -> Tensor:
         (batch_size,) 형태의 텐서
     """
     height, width = x.shape[-2:]
-    # kornia.losses.total_variation은 이미 모든 차원에 대해 평균을 계산하여 [B] 형태를 반환
-    return kornia.losses.total_variation(x) / (height * width)
+    # kornia.losses.total_variation은 [B, C]를 반환할 수 있으므로 채널 차원을 평균하여 [B]로 축소
+    tv = kornia.losses.total_variation(x) / (height * width)
+    if tv.dim() > 1:
+        tv = tv.mean(dim=1)  # reduce over channels -> shape [B]
+    return tv
 
 
 def ms_ssim_loss(y_hat, y, window_size):

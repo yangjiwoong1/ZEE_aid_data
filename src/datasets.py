@@ -31,10 +31,12 @@ class AidDataset(Dataset):
         
         self.dataset_path = dataset_path
         self.transform = transform or Compose([])
-        self.multiprocessing_manager = multiprocessing_manager if multiprocessing_manager is not None else Manager()
+        # Avoid forcing multiprocessing.Manager in notebook/single-process runs to prevent pickling issues
+        self.multiprocessing_manager = multiprocessing_manager
         self.paths = self.load_and_natsort_img_paths(dataset_path)
         self.use_cache = use_cache
-        self.cache = self.multiprocessing_manager.dict()
+        # Use a regular dict to cache tensors to avoid multiprocessing pickling issues
+        self.cache = {} # self.multiprocessing_manager.dict()
 
     def __len__(self):
         """
@@ -80,7 +82,10 @@ class AidDataset(Dataset):
         """
         paths = glob(os.path.join(dataset_path, "*.png"))
 
-        return self.multiprocessing_manager.list(natsort.natsorted(paths))
+        sorted_paths = natsort.natsorted(paths)
+        if self.multiprocessing_manager is not None:
+            return self.multiprocessing_manager.list(sorted_paths)
+        return sorted_paths
 
     def cache_img(self, idx, x):
         """

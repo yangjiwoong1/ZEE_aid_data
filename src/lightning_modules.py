@@ -63,7 +63,7 @@ class LitModel(pl.LightningModule):
             self.logging = {}
             self.logging['current_idx'] = 1
             self.logging['log'] = pd.DataFrame()
-            self.log_path = '../log' # TODO: save log
+            self.log_path = './log' # TODO: save log
 
     def metrics_factory(self, prefix):
         """
@@ -618,10 +618,10 @@ class ImagePredictionLogger(pl.Callback):
             hr_height / lr_height,
             hr_width / lr_width,
         )
-        window_size = self.window_size or pl_module.hparams.input_size
+        window_size = self.window_size or (lr_height, lr_width)
         assert (
-            window_size[0] <= pl_module.hparams.chip_size[0]
-            and window_size[1] <= pl_module.hparams.chip_size[1]
+            window_size[0] <= lr_height
+            and window_size[1] <= lr_width
         )
         window_size_hr = (
             round(ratio_hr_lr_height * window_size[0]),
