@@ -356,7 +356,7 @@ class LitModel(pl.LightningModule):
         return {
             "optimizer": optimizer,
             "lr_scheduler": scheduler,
-            "monitor": "val/loss",
+            "monitor": "val_loss",
         }
 
     @staticmethod
