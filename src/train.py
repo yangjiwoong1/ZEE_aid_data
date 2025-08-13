@@ -87,7 +87,8 @@ def finish_wandb_logging(args):
     """
     if args.use_wandb:
         if args.upload_checkpoint:
-            wandb.save(f"checkpoints/checkpoint.ckpt")
+            best_model_path = args.checkpoint_callback.best_model_path
+            wandb.save(best_model_path)
         wandb.finish()
 
 
@@ -178,8 +179,9 @@ def add_callbacks(args, dataloaders):
             ),
             LearningRateMonitor(logging_interval="step"),
         ])
-    
+
     vars(args)["callbacks"] = callbacks
+    vars(args)["checkpoint_callback"] = checkpoint_callback
 
 
 def add_gpu_augmentations(args):
