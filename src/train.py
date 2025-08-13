@@ -89,6 +89,10 @@ def finish_wandb_logging(args):
         if args.upload_checkpoint:
             best_model_path = args.checkpoint_callback.best_model_path
             wandb.save(best_model_path)
+
+            # 마지막 모델도 저장하고 싶으면 
+            # last_ckpt_path = os.path.join(args.checkpoint_callback.dirpath, "last.ckpt")
+            # wandb.save(last_ckpt_path)
         wandb.finish()
 
 
@@ -277,27 +281,23 @@ def add_project_specific_arguments(parser):
         help="Separate seed to ensure the train/val/test split remains the same.",
     )
     parser.add_argument(
-        "--normalize_lr",
-        default=True,
-        type=bool,
+        "--no_normalize_lr",
+        action="store_false",
         help="Normalize the low resolution images.",
     )
     parser.add_argument(
-        "--normalize_hr",
-        default=True,
-        type=bool,
+        "--no_normalize_hr",
+        action="store_false",
         help="Normalize the high resolution images.",
     )
     parser.add_argument(
         "--randomly_rotate_and_flip_images",
-        default=True,
-        type=bool,
+        action="store_true",
         help="Randomly rotate and flip the images.",
     )
     parser.add_argument(
         "--shuffle",
-        default=True,
-        type=bool,
+        action="store_true",
         help="Shuffle the dataset.",
     )
 

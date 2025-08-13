@@ -3,6 +3,7 @@ import datetime
 import torch
 import pytorch_lightning as pl
 import wandb
+import argparse
 from argparse import ArgumentParser
 from kornia.contrib import extract_tensor_patches
 from torch.optim import Adam, SGD
@@ -394,8 +395,8 @@ class LitModel(pl.LightningModule):
         parser.add_argument("--padding_mode", default="reflect", type=str)
         parser.add_argument("--kernel_size", default=3, type=int)
         parser.add_argument("--sr_kernel_size", default=1, type=int)
-        parser.add_argument("--use_dropout", default=False, type=bool)
-        parser.add_argument("--use_batchnorm", default=False, type=bool)
+        parser.add_argument("--use_dropout", action="store_true")
+        parser.add_argument("--use_batchnorm", action="store_true")
 
         # Optimizer arguments
         parser.add_argument("--optimizer", default="adam", type=str)
