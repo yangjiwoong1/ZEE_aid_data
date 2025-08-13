@@ -248,7 +248,7 @@ class LitModel(pl.LightningModule):
         )
 
         self.log_dict(metrics_reduced, on_step=True, on_epoch=True)
-        self.log("train/loss", loss_reduced, on_step=True, on_epoch=True, prog_bar=True)
+        self.log("train_loss", loss_reduced, on_step=True, on_epoch=True, prog_bar=True)
         return {"loss": loss_reduced, "metrics": metrics}
 
     def validation_step(self, batch, batch_idx):
@@ -267,7 +267,7 @@ class LitModel(pl.LightningModule):
         )
         _, metrics_reduced, loss_reduced = self.unpack_and_reduce_metrics(loss_output, prefix="val")
         self.log_dict(metrics_reduced, on_step=False, on_epoch=True)
-        self.log("val/loss", loss_reduced, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("val_loss", loss_reduced, on_step=False, on_epoch=True, prog_bar=True)
         return loss_output["loss"]  # Instance-wise loss
 
     def validation_epoch_end(self, validation_step_output):
@@ -278,7 +278,7 @@ class LitModel(pl.LightningModule):
             try:
                 self.logger.experiment.log(
                     {
-                        "val/loss_hist": wandb.Histogram(instance_loss),
+                        "val_loss_hist": wandb.Histogram(instance_loss),
                         "global_step": self.global_step,
                     }
                 )
@@ -303,7 +303,7 @@ class LitModel(pl.LightningModule):
         _, metrics_reduced, loss_reduced = self.unpack_and_reduce_metrics(loss_output, prefix="test")
 
         self.log_dict(metrics_reduced, on_step=False, on_epoch=True)
-        self.log("test/loss", loss_reduced, on_step=False, on_epoch=True)
+        self.log("test_loss", loss_reduced, on_step=False, on_epoch=True)
         return loss_output["loss"]  # Instance-wise loss
 
     def unpack_and_reduce_metrics(self, loss_output, prefix):

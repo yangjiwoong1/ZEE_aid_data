@@ -32,7 +32,6 @@ def cli_main():
 
     args = parse_arguments()
     set_random_seed(args)
-    initialise_wandb(args)
 
     dataloaders = load_aid_dataset(**vars(args))
     generate_model_backbone(args, dataloaders)
@@ -129,26 +128,51 @@ def add_callbacks(args, dataloaders):
         test set.
     """
     callbacks = []
+    
+    current_time = (datetime.datetime.now() + datetime.timedelta(hours=9)).strftime("%m%d-%H:%M")
 
-    # ModelCheckpoint는 기본으로 포함
-    checkpoint_callback = ModelCheckpoint(
-        dirpath="checkpoints",
-        filename="epoch{epoch:02d}-val_loss{val/loss:.4f}",
+    checkpoint_best = ModelCheckpoint(
+        dirpath=f"checkpoints/exp_{current_time}",
+        filename="best-epoch{epoch:02d}-val_loss{val_loss:.4f}",
         save_top_k=1,
         verbose=True,
-        monitor="val/loss",
+        monitor="val_loss",
         mode="min",
     )
-    callbacks.append(checkpoint_callback)
+    checkpoint_last = ModelCheckpoint(
+        dirpath=f"checkpoints/exp_{current_time}",
+        filename="last-epoch{epoch:02d}-val_loss{val_loss:.4f}",
+        verbose=True,
+        save_last=True,
+    )
+
+    callbacks.extend([checkpoint_best, checkpoint_last])
+
+    if args.early_stop:
+        early_stopping = EarlyStopping(
+            monitor="val_loss",
+            mode="min",
+            patience=args.early_stop_patience,
+            min_delta=args.early_stop_min_delta,
+            verbose=True,
+        )
+        callbacks.append(early_stopping)
+    
     # Print/Log a full model summary at the start of training
     callbacks.append(ModelSummary(max_depth=-1))
     
     # wandb가 활성화된 경우에만 wandb 관련 콜백 추가
     if args.use_wandb:
-        current_time = datetime.datetime.now().strftime("%m%d-%H%M")
+        tags = [] if not args.upload_checkpoint else ["inference"]
+
         vars(args)["logger"] = WandbLogger(
-            project="zee_aid", name=f"{args.model}_{args.zoom_factor}x_{current_time}", config=args
+            project="zee_aid",
+            name=f"{args.model}_{args.zoom_factor}x_{current_time}",
+            tags=tags,
+            config=args,
         )
+        wandb.run.log_code("./src/")
+
         callbacks.extend([
             ImagePredictionLogger(
                 train_dataloader=dataloaders["train"],
@@ -211,19 +235,6 @@ def generate_model_backbone(args, dataloaders):
         use_dropout=args.use_dropout,
         use_batchnorm=args.use_batchnorm,
     )
-
-def initialise_wandb(args):
-    """
-    Initialises WandB for logging.
-
-    Args:
-        args (argparse.Namespace): Arguments parsed from the CLI and model and project specific arguments.
-    """
-    if args.use_wandb:  # wandb 비활성화가 기본
-        tags = [] if not args.upload_checkpoint else ["inference"]
-        wandb.init(project="zee_aid", tags=tags)
-        wandb.run.log_code("./src/")
-
 
 def parse_arguments():
     """ Parses the arguments passed from the CLI using ArgumentParser and
@@ -319,6 +330,25 @@ def add_project_specific_arguments(parser):
         "--upload_checkpoint",
         action="store_true",
         help="Uploads the model checkpoint to WandB.",
+    )
+
+    # Early stopping arguments
+    parser.add_argument(
+        "--early_stop",
+        action="store_true",
+        help="Enable early stopping.",
+    )
+    parser.add_argument(
+        "--early_stop_patience",
+        type=int,
+        default=5,
+        help="Number of epochs with no improvement after which training will be stopped.",
+    )
+    parser.add_argument(
+        "--early_stop_min_delta",
+        type=float,
+        default=0.0,
+        help="Minimum change in the monitored quantity to qualify as an improvement.",
     )
 
     return parser
