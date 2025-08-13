@@ -131,22 +131,18 @@ def add_callbacks(args, dataloaders):
     
     current_time = (datetime.datetime.now() + datetime.timedelta(hours=9)).strftime("%m%d-%H:%M")
 
-    checkpoint_best = ModelCheckpoint(
+    # 가장 좋은 모델, 마지막 모델 저장
+    checkpoint_callback = ModelCheckpoint(
         dirpath=f"checkpoints/exp_{current_time}",
-        filename="best-epoch{epoch:02d}-val_loss{val_loss:.4f}",
+        filename="best-{epoch:02d}-{val_loss:.4f}",
         save_top_k=1,
-        verbose=True,
+        save_last=True,
         monitor="val_loss",
         mode="min",
-    )
-    checkpoint_last = ModelCheckpoint(
-        dirpath=f"checkpoints/exp_{current_time}",
-        filename="last-epoch{epoch:02d}-val_loss{val_loss:.4f}",
-        verbose=True,
-        save_last=True,
+        verbose=True
     )
 
-    callbacks.extend([checkpoint_best, checkpoint_last])
+    callbacks.append(checkpoint_callback)
 
     if args.early_stop:
         early_stopping = EarlyStopping(
