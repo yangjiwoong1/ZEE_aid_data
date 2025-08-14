@@ -113,7 +113,7 @@ def generate_and_run_trainer(args, dataloaders, model):
     trainer.fit(model, dataloaders["train"], dataloaders["val"])
 
     if not args.fast_dev_run:
-        trainer.test(model=model, dataloaders=dataloaders["test"])
+        trainer.test(model=model, dataloaders=dataloaders["test"], ckpt_path="best")
 
 
 def add_callbacks(args, dataloaders):
